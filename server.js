@@ -1,3 +1,4 @@
+// Node 서버 세팅, 리액트 연결
 const express = require('express');
 const path = require('path');
 const app = express();
