@@ -1,0 +1,14 @@
+{
+    "name": "sever",
+    "version": "1.0.0",
+    "main": "index.js",
+    "repository": "git@github.com:JKKook/praise.git",
+    "author": "JKKook <whdrnrdldia@naver.com>",
+    "license": "MIT",
+    "private": true,
+    "dependencies": {
+        "mongodb": "4.1.0",
+        "openai": "^3.2.1",
+        "readline-sync": "^1.4.10"
+    }
+}
