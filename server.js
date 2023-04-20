@@ -16,11 +16,28 @@ const cors = require('cors');
 app.use(cors());
 app.use(bodyParser.json());
 
-app.listen(8080, function () {
-    console.log('listening on 8080');
-});
-
 // MonogoDB 연결
+const MongoClient = require('mongodb').MongoClient;
+// 변수 하나 필요, todoapp이라는 데이터베이스 폴더에 연결
+let db;
+MongoClient.connect(
+    process.env.MONGO_ATLAS_URL,
+    { useUnifiedTopology: true },
+    // 연결되면 할 일
+    (error, client) => {
+        if (error) return console.log(error.message);
+        db = client.db('chatlist');
+
+        // db.collection('chat').insertOne({ msg: 'hello ' }, (err, result) => {
+        //     console.log(result);
+        // });
+
+        // 생성한 서버를 지정 포트에 열어 줌
+        app.listen(8080, () => {
+            console.log('node listening on 8080'); // 지정 포트를 열면 보여 줄 부분
+        });
+    },
+);
 
 // Root 페이지를 리액트 build index.html로 설정
 app.use(express.static(path.join(__dirname, 'client/build')));
