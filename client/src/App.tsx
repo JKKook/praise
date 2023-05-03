@@ -1,49 +1,73 @@
-import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './App.css';
+import React, { useState } from 'react';
+
+const SERVER_URL = 'http://localhost:8000/api/chatgpt';
+
+// history
+let messageHistroy: any[] = [];
+let userMessages: any[] = [];
+let responseMessages: any[] = [];
 
 function App() {
     const [userInput, setUserInput] = useState('');
-    const [gptResponse, setGptResponse] = useState<any>([]);
+    const [output, setOutput] = useState('');
 
-    const SEVER_URL = 'http://localhost:8000/api/chatgpt';
-
-    const fetchData = async () => {
-        const response = await axios.get(SEVER_URL);
-        setGptResponse(response.data);
+    const handleUserInputChange = (
+        event: React.ChangeEvent<HTMLInputElement>,
+    ) => {
+        setUserInput(event.target.value);
     };
 
-    // GET
-    useEffect(() => {
-        fetchData();
-    }, []);
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
 
-    // POST
-    const handleSubmit = async (e: React.ChangeEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        // const user_input = e.target.user_input.value;
-        const chatgpt_output = e.target.chat_output.value;
-        // const done = e.target.done.value;
-        await axios.post(SEVER_URL, { chatgpt_output });
-        fetchData();
+        const role = userInput ? 'user' : 'assistant';
+
+        const data = {
+            userInput: userInput,
+            output: output,
+            role: role,
+        };
+        userMessages.push(data.userInput);
+        let userInputs = userMessages.push(data.userInput);
+        console.log('data', data); // 현재 output은 null
+
+        const response = await axios.post(SERVER_URL, {
+            userMessages,
+            responseMessages,
+        });
+        // history 생성
+        responseMessages.push(response.data.output);
+        let outputs = responseMessages.push(response.data.output);
+        //
+        setOutput(response.data.output);
+        setUserInput('');
+
+        messageHistroy.push(userInputs);
+        messageHistroy.push(outputs);
+
+        console.log('history', messageHistroy);
+
+        // 배열 초기화
+        userMessages = [];
+        // responseMessages = [];
+        messageHistroy = [];
     };
+
     return (
-        <div className='App'>
+        <div>
+            <div>
+                <p>{output}</p>
+            </div>
             <form onSubmit={handleSubmit}>
                 <input
-                    name='user_input'
-                    // value={userInput}
-                    defaultValue={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
+                    type='text'
+                    name='userInput'
+                    value={userInput}
+                    onChange={handleUserInputChange}
                 />
-                <input name='chatgpt_output' defaultValue={gptResponse} />
                 <button type='submit'>Submit</button>
             </form>
-            {gptResponse.map((list: any) => (
-                <div key={list.id}>
-                    <div>{list.chatgpt_output}</div>
-                </div>
-            ))}
         </div>
     );
 }
