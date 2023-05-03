@@ -29,7 +29,6 @@ mongoose
 
 // Server => Client request
 
-
 // Root 페이지를 리액트 build index.html로 설정
 app.use(express.static(path.join(__dirname, 'client/build')));
 app.get('/', (req, res) => {
@@ -41,24 +40,12 @@ app.get('/', (req, res) => {
 //     res.sendFile(path.join(__dirname, 'client/build/index.html'));
 // });
 
-app.get('/chat', (req, res) => {
-    res.json(chatList);
-});
-
-// app.post('/chat', async (req, res) => {
-//     const { input, output} = req.body;
-//     db.insertOne({
-//         user_input : userInput,
-//         chatGpt_output : gptResponse,
-//     });
-//     return res.send('API 데이터 입력 완료');
-// });
-
 // Root 경로 리액트로 POST 요청 시, 메시지 전달
 // input에는 user_input을
 const { Configuration, OpenAIApi } = require('openai');
 const readlineSync = require('readline-sync');
 const { Chat } = require('./models/chatSchema');
+const { systemContent } = require('./utils/systemContent');
 
 // 구성 및 API 설정
 const configuration = new Configuration({
@@ -67,74 +54,71 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 
+// chat history 가져오기
+app.get('/chat', async (req, res) => {
+    try {
+        const chatHistory = await Chat.find();
+        res.json(chatHistory);
+    } catch (err) {
+        console.log(err);
+        res.status(500).send('Server Error');
+    }
+});
+
+// chat 데이터 저장하기
 app.post('/api/chatgpt', async (req, res) => {
-    const chat = new Chat(req.body);
-    const isChatRequest = await chat.save();
-    // 채팅 기록 남기기
-    const ListOfChatting = [];
-    const defaultMessage = '칭찬 해주세요';
-    // 채팅 루프
-    while (isChatRequest) {
-        console.log(isChatRequest);
-        const user_input =
-            readlineSync.question(`오늘의 당신을 칭찬합니다 👍 : `);
+    const { userMessages, responseMessages, messageHistroy } = req.body;
+    // console.log(userMessages);
+    // console.log(responseMessages);
+    // console.log(messageHistroy);
 
-        // 상황에 대한 채팅 기록
-        let orderMessages = [];
-        // 채팅 기록을 반복
-        for (const [userInput, gptOutput] of ListOfChatting) {
-            // role : {user, assistant}, content : {message text}
-            orderMessages.push({ role: 'user', content: userInput });
-            orderMessages.push({ role: 'assistant', content: gptOutput });
-        }
+    let messageOptions = [
+        { role: 'system', content: systemContent.setting },
+        // { role: 'user', content: systemContent.setting },
+        { role: 'assistant', content: systemContent.default },
+    ];
 
-        // 배열 형태로 반복, user_Input은 메시지 배열에 추가!
-        orderMessages.push({
-            role: 'user',
-            content: user_input + '\u00A0' + `${defaultMessage}`,
-        });
-
-        try {
-            // AI model
-            const chatGpt = await openai.createChatCompletion({
-                model: 'gpt-3.5-turbo',
-                messages: orderMessages,
-                // max_tokens: 300,
-                // temperature: 0.2,
+    while (userMessages.length != 0 || responseMessages.length != 0) {
+        if (userMessages.length != 0) {
+            // Chat 모델을 이용하여 userMessages를 저장합니다.
+            const chatInput = new Chat({
+                input: userMessages.shift().replace(/\n/g, ''),
             });
+            await chatInput.save();
 
-            // AI 응답
-            // console.log(chatGpt);
-            // console.log(chatGpt.data);
-            // console.log(chatGpt.data.choices);
-            if (chatGpt.data) {
-                gptResponse = chatGpt.data.choices[0].message.content;
-                console.log(gptResponse);
-                res.json({ message: gptResponse });
+            messageOptions.push(
+                JSON.parse(
+                    '{"role" : "user", "content" : "' +
+                        String(chatInput.input) +
+                        '"}',
+                ),
+            );
+        }
+        if (responseMessages.length != 0) {
+            // Chat 모델을 이용하여 responseMessages를 저장합니다.
+            const chatOutput = new Chat({
+                output: responseMessages.shift().replace(/\n/g, ''),
+            });
+            await chatOutput.save();
 
-                //
-                ListOfChatting.push([user_input, gptResponse]);
-
-                //
-                // const user_input_again = readlineSync.question(
-                //     '\nWould you like to continue the conversation? (Y/N)',
-                // );
-                // if (user_input_again.toUpperCase() === 'N') {
-                //     return;
-                // } else if (user_input_again.toUpperCase() !== 'Y') {
-                //     console.log("Invalid input. Please enter 'Y' or 'N'.");
-                //     return;
-                // }
-            }
-        } catch (error) {
-            if (error.response) {
-                console.log(error.response.status);
-                console.log(error.response.data);
-            } else {
-                console.log(error.message);
-            }
+            messageOptions.push(
+                JSON.parse(
+                    '{"role" : "assistant", "content" : "' +
+                        String(chatOutput.output) +
+                        '"}',
+                ),
+            );
         }
     }
+
+    const completion = await openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
+        messages: messageOptions,
+        temperature: 1,
+        top_p: 0.8,
+    });
+    let response = completion.data.choices[0].message['content'];
+    res.json({ output: response });
 });
 
 app.listen(PORT, () => {
