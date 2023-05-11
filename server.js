@@ -1,12 +1,11 @@
 // Node 서버 세팅, 리액트 연결
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const app = express();
 const mongoose = require('mongoose');
 const PORT = 8000;
-
-require('dotenv').config();
 
 // 노드 데이터를 리액트로 보내기 위한 세팅
 app.use(express.urlencoded({ extended: true }));
@@ -43,8 +42,8 @@ app.get('/', (req, res) => {
 // Root 경로 리액트로 POST 요청 시, 메시지 전달
 // input에는 user_input을
 const { Configuration, OpenAIApi } = require('openai');
-const readlineSync = require('readline-sync');
-const { Chat } = require('./models/chatSchema');
+const { Chat } = require('./models/gptSchema');
+const { User } = require('./models/userSchema');
 const { systemContent } = require('./utils/systemContent');
 
 // 구성 및 API 설정
@@ -81,7 +80,7 @@ app.post('/api/chatgpt', async (req, res) => {
     while (userMessages.length != 0 || responseMessages.length != 0) {
         if (userMessages.length != 0) {
             // Chat 모델을 이용하여 userMessages를 저장합니다.
-            const chatInput = new Chat({
+            const chatInput = new User({
                 input: userMessages.shift().replace(/\n/g, ''),
             });
             await chatInput.save();
